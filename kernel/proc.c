@@ -292,9 +292,11 @@ fork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
+  
   //my change
   np->trace_arg = p->trace_arg;
   //my change 
+
   pid = np->pid;
 
   np->state = RUNNABLE;
@@ -674,6 +676,7 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 // No lock to avoid wedging a stuck machine further.
 void
 procdump(void)
+
 {
   static char *states[] = {
   [UNUSED]    "unused",
@@ -695,5 +698,16 @@ procdump(void)
       state = "???";
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
+  }
+}
+
+void
+procnum(uint64 *dst)
+{
+  *dst = 0;
+  struct proc *p;
+  for (p = proc; p < &proc[NPROC]; p++) {
+    if (p->state != UNUSED)
+      (*dst)++;
   }
 }

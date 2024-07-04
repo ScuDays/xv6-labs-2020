@@ -106,4 +106,6 @@ struct proc {
 
   //my change
   int trace_arg;
+  struct sysinfo *sys_info;
+  //my change
 };

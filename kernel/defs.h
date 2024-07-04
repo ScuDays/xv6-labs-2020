@@ -63,6 +63,9 @@ void            ramdiskrw(struct buf*);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
+// my change
+void           get_free_Memory(uint64 *finalNum);
+// my change
 
 // log.c
 void            initlog(int, struct superblock*);
@@ -104,7 +107,9 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
-
+// my change
+void            procnum(uint64 *dst);
+// my change
 // swtch.S
 void            swtch(struct context*, struct context*);
 

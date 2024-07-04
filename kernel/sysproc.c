@@ -7,14 +7,19 @@
 #include "spinlock.h"
 #include "proc.h"
 
+// my change
+#include "sysinfo.h"
+// my change
+
+
 uint64
 sys_exit(void)
 {
   int n;
-  if(argint(0, &n) < 0)
+  if (argint(0, &n) < 0)
     return -1;
   exit(n);
-  return 0;  // not reached
+  return 0; // not reached
 }
 
 uint64
@@ -33,7 +38,7 @@ uint64
 sys_wait(void)
 {
   uint64 p;
-  if(argaddr(0, &p) < 0)
+  if (argaddr(0, &p) < 0)
     return -1;
   return wait(p);
 }
@@ -44,10 +49,10 @@ sys_sbrk(void)
   int addr;
   int n;
 
-  if(argint(0, &n) < 0)
+  if (argint(0, &n) < 0)
     return -1;
   addr = myproc()->sz;
-  if(growproc(n) < 0)
+  if (growproc(n) < 0)
     return -1;
   return addr;
 }
@@ -58,12 +63,14 @@ sys_sleep(void)
   int n;
   uint ticks0;
 
-  if(argint(0, &n) < 0)
+  if (argint(0, &n) < 0)
     return -1;
   acquire(&tickslock);
   ticks0 = ticks;
-  while(ticks - ticks0 < n){
-    if(myproc()->killed){
+  while (ticks - ticks0 < n)
+  {
+    if (myproc()->killed)
+    {
       release(&tickslock);
       return -1;
     }
@@ -78,7 +85,7 @@ sys_kill(void)
 {
   int pid;
 
-  if(argint(0, &pid) < 0)
+  if (argint(0, &pid) < 0)
     return -1;
   return kill(pid);
 }
@@ -97,13 +104,29 @@ sys_uptime(void)
 }
 
 uint64
-sys_trace(void){
-int n;
-argint(0, &n);
-struct proc *p = myproc();
-p->trace_arg = n;
+sys_trace(void)
+{
+  int n;
+  argint(0, &n);
+  struct proc *p = myproc();
+  p->trace_arg = n;
   return 0;
+}
 
-  // argint(0, &(myproc()->trace_arg));
-  // return 0;
+uint64
+sys_sysinfo(void){
+ 
+  struct sysinfo f;
+  uint64 dest;
+  argaddr(0, &dest) ;
+  get_free_Memory(&f.freemem);
+  procnum(&f.nproc);
+  
+  // 从内核复制到用户空间
+  struct proc *p = myproc();
+  if(copyout(p->pagetable, dest, (char *)&f, sizeof f )<0)
+  return -1;
+  
+
+  return 0;
 }
