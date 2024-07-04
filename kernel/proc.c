@@ -273,6 +273,8 @@ fork(void)
     release(&np->lock);
     return -1;
   }
+
+
   np->sz = p->sz;
 
   np->parent = p;
@@ -290,7 +292,9 @@ fork(void)
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
-
+  //my change
+  np->trace_arg = p->trace_arg;
+  //my change 
   pid = np->pid;
 
   np->state = RUNNABLE;
