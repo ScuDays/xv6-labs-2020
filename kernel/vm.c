@@ -471,7 +471,6 @@ void vmprint(pagetable_t pagetable)
 }
 void vmprint_help(pagetable_t pagetable, int level)
 {
-  // there are 2^9 = 512 PTEs in a page table.
   if (level == 3)
     return;
   for (int i = 0; i < 512; i++)
