@@ -11,6 +11,7 @@ void
 main()
 {
   if(cpuid() == 0){
+    //初始化控制台，一旦控制台初始化完毕，系统可以向控制台打印内容
     consoleinit();
 #if defined(LAB_PGTBL) || defined(LAB_LOCK)
     statsinit();
