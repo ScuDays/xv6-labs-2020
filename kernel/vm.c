@@ -6,8 +6,12 @@
 #include "defs.h"
 #include "fs.h"
 
+
+
+#include "spinlock.h" 
+#include "proc.h"
 /*
- * the kernel's page table.
+ * the kernel's page table.s
  */
 pagetable_t kernel_pagetable;
 
@@ -45,6 +49,8 @@ void kvminit()
   // the highest virtual address in the kernel.
   kvmmap(TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X);
 }
+
+
 
 // Switch h/w page table register to the kernel's page table,
 // and enable paging.
@@ -132,8 +138,9 @@ kvmpa(uint64 va)
   uint64 off = va % PGSIZE;
   pte_t *pte;
   uint64 pa;
-
-  pte = walk(kernel_pagetable, va, 0);
+ 
+  //pte = walk(myproc()->userInKernelPageTable, va, 0);
+   pte = walk(myproc()->userInKernelPageTable, va, 0);
   if (pte == 0)
     panic("kvmpa");
   if ((*pte & PTE_V) == 0)
@@ -203,7 +210,7 @@ uvmcreate()
 {
   pagetable_t pagetable;
   pagetable = (pagetable_t)kalloc();
-  if (pagetable == 0)
+  if (pagetable == 0) 
     return 0;
   memset(pagetable, 0, PGSIZE);
   return pagetable;
@@ -502,3 +509,50 @@ void vmprint_help(pagetable_t pagetable, int level)
     }
   }
 }
+
+
+// my work
+
+void Uvmmap(uint64 va, uint64 pa, uint64 sz, int perm, pagetable_t* userPagetable)
+{
+  if (mappages(kernel_pagetable, va, sz, pa, perm) != 0)
+    panic("kvmmap");
+}
+
+
+/*
+ * create a direct-map page table for the kernel pagetable in user proc.
+ */
+pagetable_t UserProcKenelPagetableinit()
+{
+  pagetable_t pagetable = uvmcreate();
+    if(pagetable == 0)
+  return 0;
+  memset(pagetable, 0, PGSIZE);
+
+  // uart registers
+  Uvmmap(UART0, UART0, PGSIZE, PTE_R | PTE_W, &pagetable);
+
+  // virtio mmio disk interface
+  Uvmmap(VIRTIO0, VIRTIO0, PGSIZE, PTE_R | PTE_W,&pagetable);
+
+  // CLINT
+  Uvmmap(CLINT, CLINT, 0x10000, PTE_R | PTE_W, &pagetable);
+
+  // PLIC
+  Uvmmap(PLIC, PLIC, 0x400000, PTE_R | PTE_W, &pagetable);
+
+  // map kernel text executable and read-only.
+  Uvmmap(KERNBASE, KERNBASE, (uint64)etext - KERNBASE, PTE_R | PTE_X, &pagetable);
+
+  // map kernel data and the physical RAM we'll make use of.
+  Uvmmap((uint64)etext, (uint64)etext, PHYSTOP - (uint64)etext, PTE_R | PTE_W, &pagetable);
+
+  // map the trampoline for trap entry/exit to
+  // the highest virtual address in the kernel.
+  Uvmmap(TRAMPOLINE, (uint64)trampoline, PGSIZE, PTE_R | PTE_X, &pagetable);
+
+  return pagetable;
+}
+
+
