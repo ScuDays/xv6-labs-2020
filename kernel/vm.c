@@ -6,10 +6,11 @@
 #include "defs.h"
 #include "fs.h"
 
-
-
+// my work
 #include "spinlock.h" 
 #include "proc.h"
+
+
 /*
  * the kernel's page table.s
  */
@@ -512,13 +513,11 @@ void vmprint_help(pagetable_t pagetable, int level)
 
 
 // my work
-
 void Uvmmap(uint64 va, uint64 pa, uint64 sz, int perm, pagetable_t* userPagetable)
 {
-  if (mappages(kernel_pagetable, va, sz, pa, perm) != 0)
+  if (mappages(*userPagetable, va, sz, pa, perm) != 0)
     panic("kvmmap");
 }
-
 
 /*
  * create a direct-map page table for the kernel pagetable in user proc.

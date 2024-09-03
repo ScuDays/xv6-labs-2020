@@ -120,7 +120,7 @@ found:
     release(&p->lock);
     return 0;
   }
-
+// -------------------------------------------------------
   // 初始化用户进程的内核页表
   p->userInKernelPageTable = UserProcKenelPagetableinit();
   if(p->userInKernelPageTable == 0){
@@ -137,6 +137,7 @@ found:
       Uvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W, &p->userInKernelPageTable);
       p->kstack = va;
 
+// -------------------------------------------------------
 
   // Set up new context to start executing at forkret,
   // which returns to user space.
@@ -159,14 +160,16 @@ freeproc(struct proc *p)
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
+// -------------------------------------------------------
 
+// 释放用户线程的内核页表
   if(p->userInKernelPageTable){
-
     uvmunmap(p->userInKernelPageTable, p->kstack, 1, 1);
     p->kstack = 0;
     proc_freekernelpt(p->userInKernelPageTable);
   }
-   
+  p->userInKernelPageTable = 0;
+// -------------------------------------------------------
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
@@ -219,24 +222,6 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
   uvmfree(pagetable, sz);
-}
-
-
-void proc_freekernelpt(pagetable_t pagetable)
-{
-  // there are 2^9 = 512 PTEs in a page table.
-  for (int i = 0; i < 512; i++)
-  {
-    pte_t pte = pagetable[i];
-    if ((pte & PTE_V) && (pte & (PTE_R | PTE_W | PTE_X)) == 0)
-    {
-      // this PTE points to a lower-level page table.
-      uint64 child = PTE2PA(pte);
-      proc_freekernelpt((pagetable_t)child);
-    }
-
-  }
-  kfree((void *)pagetable);
 }
 
 
@@ -744,4 +729,23 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// my work
+// 释放页表除了叶子物理页表之外的所有内存
+void proc_freekernelpt(pagetable_t pagetable)
+{
+  // there are 2^9 = 512 PTEs in a page table.
+  for (int i = 0; i < 512; i++)
+  {
+    pte_t pte = pagetable[i];
+    if ((pte & PTE_V) && (pte & (PTE_R | PTE_W | PTE_X)) == 0)
+    {
+      // this PTE points to a lower-level page table.
+      uint64 child = PTE2PA(pte);
+      proc_freekernelpt((pagetable_t)child);
+    }
+
+  }
+  kfree((void *)pagetable);
 }
