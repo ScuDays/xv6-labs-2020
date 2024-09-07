@@ -184,7 +184,7 @@ void            vmprint(pagetable_t pagetable);
 void            vmprint_help(pagetable_t pagetable, int level);
 void            Uvmmap(uint64 va, uint64 pa, uint64 sz, int perm, pagetable_t* userPagetable);
 pagetable_t     UserProcKenelPagetableinit();
-
+void            copyUserPageToKernelPage(pagetable_t userPagetable, pagetable_t kernelPagetable,uint64 beginAddress, uint64 finishAddress);
 // plic.c
 void            plicinit(void);
 void            plicinithart(void);
@@ -208,6 +208,9 @@ void            statsinc(void);
 // sprintf.c
 int             snprintf(char*, int, char*, ...);
 
+// vmcopyin.c
+int             copyin_new(pagetable_t, char *, uint64, uint64);
+int             copyinstr_new(pagetable_t, char *, uint64, uint64);
 #ifdef LAB_NET
 // pci.c
 void            pci_init();
