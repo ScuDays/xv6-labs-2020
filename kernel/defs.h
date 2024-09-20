@@ -13,6 +13,11 @@ struct mbuf;
 struct sock;
 #endif
 
+#ifndef SOL_PGTBL
+#define SOL_PGTBL 1
+#endif
+
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -110,6 +115,8 @@ int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 // my work
 void            proc_freekernelpt(pagetable_t pagetable);
+void            kvmswitch(pagetable_t pagetable);
+void            kvmswitch_kernel( );
 // swtch.S
 void            swtch(struct context*, struct context*);
 
@@ -231,4 +238,7 @@ void            sockclose(struct sock *);
 int             sockread(struct sock *, uint64, int);
 int             sockwrite(struct sock *, uint64, int);
 void            sockrecvudp(struct mbuf*, uint32, uint16, uint16);
+
+
+
 #endif

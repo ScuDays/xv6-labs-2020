@@ -118,18 +118,16 @@ int exec(char *path, char **argv)
   p->trapframe->sp = sp;         // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
 
-  // --------------------------------------------------------------------------------
-
+#ifdef SOL_PGTBL
   copyUserPageToKernelPage(p->pagetable, p->userInKernelPageTable, 0, p->sz);
-  // --------------------------------------------------------------------------------
+#endif
 
-  // --------------------------------------------------------------------------
-  // my work
+#ifdef SOL_PGTBL
   if (p->pid == 1)
   {
     vmprint(p->pagetable);
-    //vmprint(p->userInKernelPageTable);
   }
+#endif
 
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 

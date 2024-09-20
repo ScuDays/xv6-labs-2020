@@ -31,6 +31,7 @@ void procinit(void)
   {
     initlock(&p->lock, "proc");
 
+    // 移除每个进程原本映射内核栈的代码，将代码移动到allocproc()中
     // // Allocate a page for the process's kernel stack.
     // // Map it high in memory, followed by an invalid
     // // guard page.
@@ -127,23 +128,20 @@ found:
     release(&p->lock);
     return 0;
   }
-  // -------------------------------------------------------
 
+#ifdef SOL_PGTBL
   // 初始化用户进程的内核页表,将全局内核页面中的内容复制到每个用户进程的内核页表中
   p->userInKernelPageTable = UserProcKenelPagetableinit();
+#endif
+
   if (p->userInKernelPageTable == 0)
   {
     freeproc(p);
     release(&p->lock);
     return 0;
   }
-  
-  // 复制用户页表中的内容到用户进程的内核页表中
-  // copyUserPageToKernelPage(&(p->pagetable), &(p->userInKernelPageTable), 0, p->sz);
 
-  // vmprint(p->pagetable);
-  // vmprint(p->userInKernelPageTable);
- 
+#ifdef SOL_PGTBL
   // 给进程的内核页表映射内核栈
   char *pa = kalloc();
   if (pa == 0)
@@ -151,8 +149,7 @@ found:
   uint64 va = KSTACK((int)(p - proc));
   Uvmmap(va, (uint64)pa, PGSIZE, PTE_R | PTE_W, &p->userInKernelPageTable);
   p->kstack = va;
-
-  // -------------------------------------------------------
+#endif
 
   // Set up new context to start executing at forkret,
   // which returns to user space.
@@ -175,8 +172,7 @@ freeproc(struct proc *p)
   if (p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
 
-  // -------------------------------------------------------
-
+#ifdef SOL_PGTBL
   // 释放用户线程的内核页表
   if (p->userInKernelPageTable)
   {
@@ -185,8 +181,8 @@ freeproc(struct proc *p)
     proc_freekernelpt(p->userInKernelPageTable);
   }
   p->userInKernelPageTable = 0;
+#endif
 
-  // -------------------------------------------------------
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
@@ -264,10 +260,10 @@ void userinit(void)
   // allocate one user page and copy init's instructions
   // and data into it.
   uvminit(p->pagetable, initcode, sizeof(initcode));
- 
+
   p->sz = PGSIZE;
 
-   // my work ---------------------------------------------------------------------
+  // my work ---------------------------------------------------------------------
   copyUserPageToKernelPage(p->pagetable, p->userInKernelPageTable, 0, p->sz);
   // my work ---------------------------------------------------------------------
 
@@ -293,21 +289,23 @@ int growproc(int n)
   sz = p->sz;
   if (n > 0)
   {
-    // my work ------------------------------------------------------------------------
+
+#ifdef SOL_PGTBL
     // PLIC限制
-    if (PGROUNDUP(sz + n) >= PLIC){
+    if (PGROUNDUP(sz + n) >= PLIC)
+    {
       return -1;
     }
-    // my work ------------------------------------------------------------------------
+#endif
 
     if ((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0)
     {
       return -1;
     }
-    // my work ------------------------------------------------------------------------
-    copyUserPageToKernelPage(p->pagetable, p->userInKernelPageTable, sz - n, sz);
-    // my work ------------------------------------------------------------------------
 
+#ifdef SOL_PGTBL
+    copyUserPageToKernelPage(p->pagetable, p->userInKernelPageTable, sz - n, sz);
+#endif
   }
   else if (n < 0)
   {
@@ -338,13 +336,13 @@ int fork(void)
     release(&np->lock);
     return -1;
   }
-  
-  np->sz = p->sz;
-// --------------------------------------------------------------------------------------
 
-// 复制子线程用户内核页表到子线程用户内核页表
+  np->sz = p->sz;
+  // --------------------------------------------------------------------------------------
+
+  // 复制子线程用户内核页表到子线程用户内核页表
   copyUserPageToKernelPage(np->pagetable, np->userInKernelPageTable, 0, np->sz);
-// --------------------------------------------------------------------------------------
+  // --------------------------------------------------------------------------------------
 
   np->parent = p;
 
@@ -552,15 +550,22 @@ void scheduler(void)
         // to release its lock and then reacquire it
         // before jumping back to us.
         p->state = RUNNING;
-        // 切换页表为用户进程的内核页表
-        w_satp(MAKE_SATP(p->userInKernelPageTable));
-        sfence_vma();
+
+// 更换当前页表为即将运行的进程的页表
+#ifdef SOL_PGTBL
+        kvmswitch(p->userInKernelPageTable);
+#endif
+
         c->proc = p;
         swtch(&c->context, &p->context);
 
+#ifdef SOL_PGTBL
         // Process is done running for now.
         // It should have changed its p->state before coming back.
-        kvminithart();
+        // swtch 返回，代表进程已经执行完毕，所以此时应该切换回内核页表。
+        kvmswitch_kernel();
+#endif
+
         c->proc = 0;
         found = 1;
       }
@@ -788,7 +793,7 @@ void procdump(void)
   }
 }
 
-// my work
+#ifdef SOL_PGTBL
 // 释放页表除了叶子物理页表之外的所有内存
 void proc_freekernelpt(pagetable_t pagetable)
 {
@@ -797,7 +802,7 @@ void proc_freekernelpt(pagetable_t pagetable)
   {
     pte_t pte = pagetable[i];
     // 只有最后一级的页表具有直接控制访问权限
-    // 前两级页表作用是指向下一级页表，所以只会设置 PTE_V 
+    // 前两级页表作用是指向下一级页表，所以只会设置 PTE_V
     if ((pte & PTE_V) && (pte & (PTE_R | PTE_W | PTE_X)) == 0)
     {
       // this PTE points to a lower-level page table.
@@ -807,3 +812,21 @@ void proc_freekernelpt(pagetable_t pagetable)
   }
   kfree((void *)pagetable);
 }
+#endif
+
+#ifdef SOL_PGTBL
+// 切换到pagetable这个页表
+void kvmswitch(pagetable_t pagetable)
+{
+  w_satp(MAKE_SATP(pagetable));
+  sfence_vma();
+}
+#endif
+
+// 切换到内核页表
+#ifdef SOL_PGTBL
+void kvmswitch_kernel()
+{
+  kvminithart();
+}
+#endif
