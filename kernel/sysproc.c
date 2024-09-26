@@ -55,6 +55,11 @@ sys_sbrk(void)
 uint64
 sys_sleep(void)
 {
+
+  #ifdef lab_traps
+  backtrace();
+  #endif
+  
   int n;
   uint ticks0;
 
@@ -70,6 +75,9 @@ sys_sleep(void)
     sleep(&ticks, &tickslock);
   }
   release(&tickslock);
+
+
+
   return 0;
 }
 

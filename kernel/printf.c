@@ -1,3 +1,4 @@
+
 //
 // formatted console output -- printf, panic.
 //
@@ -18,7 +19,8 @@
 volatile int panicked = 0;
 
 // lock to avoid interleaving concurrent printf's.
-static struct {
+static struct
+{
   struct spinlock lock;
   int locking;
 } pr;
@@ -32,20 +34,21 @@ printint(int xx, int base, int sign)
   int i;
   uint x;
 
-  if(sign && (sign = xx < 0))
+  if (sign && (sign = xx < 0))
     x = -xx;
   else
     x = xx;
 
   i = 0;
-  do {
+  do
+  {
     buf[i++] = digits[x % base];
-  } while((x /= base) != 0);
+  } while ((x /= base) != 0);
 
-  if(sign)
+  if (sign)
     buf[i++] = '-';
 
-  while(--i >= 0)
+  while (--i >= 0)
     consputc(buf[i]);
 }
 
@@ -60,30 +63,32 @@ printptr(uint64 x)
 }
 
 // Print to the console. only understands %d, %x, %p, %s.
-void
-printf(char *fmt, ...)
+void printf(char *fmt, ...)
 {
   va_list ap;
   int i, c, locking;
   char *s;
 
   locking = pr.locking;
-  if(locking)
+  if (locking)
     acquire(&pr.lock);
 
   if (fmt == 0)
     panic("null fmt");
 
   va_start(ap, fmt);
-  for(i = 0; (c = fmt[i] & 0xff) != 0; i++){
-    if(c != '%'){
+  for (i = 0; (c = fmt[i] & 0xff) != 0; i++)
+  {
+    if (c != '%')
+    {
       consputc(c);
       continue;
     }
     c = fmt[++i] & 0xff;
-    if(c == 0)
+    if (c == 0)
       break;
-    switch(c){
+    switch (c)
+    {
     case 'd':
       printint(va_arg(ap, int), 10, 1);
       break;
@@ -94,9 +99,9 @@ printf(char *fmt, ...)
       printptr(va_arg(ap, uint64));
       break;
     case 's':
-      if((s = va_arg(ap, char*)) == 0)
+      if ((s = va_arg(ap, char *)) == 0)
         s = "(null)";
-      for(; *s; s++)
+      for (; *s; s++)
         consputc(*s);
       break;
     case '%':
@@ -110,25 +115,48 @@ printf(char *fmt, ...)
     }
   }
 
-  if(locking)
+  if (locking)
     release(&pr.lock);
 }
 
-void
-panic(char *s)
+void panic(char *s)
 {
   pr.locking = 0;
   printf("panic: ");
   printf(s);
   printf("\n");
   panicked = 1; // freeze uart output from other CPUs
-  for(;;)
+  for (;;)
     ;
 }
 
-void
-printfinit(void)
+void printfinit(void)
 {
   initlock(&pr.lock, "pr");
   pr.locking = 1;
 }
+
+#ifdef lab_traps
+void backtrace()
+{
+  printf("backtrace:\n");
+  uint64 this_fp = r_fp();
+  backtrace_help(&this_fp);
+  return;
+}
+
+void backtrace_help(uint64 *this_fp)
+{
+  if ((PGROUNDUP(*this_fp) - PGROUNDDOWN(*this_fp)) != PGSIZE)
+  {
+    return;
+  }
+  // 返回地址保存在-8偏移的位置
+  printf("%p\n", *(uint64 *)(*this_fp - 8));
+  // 前一个帧指针保存在-16偏移的位置
+  uint64 last_fp = *this_fp - 16;
+  backtrace_help(&(*(uint64 *)last_fp));
+
+  return;
+}
+#endif

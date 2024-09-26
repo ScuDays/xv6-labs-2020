@@ -9,6 +9,10 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
+#ifndef lab_traps
+#define lab_traps 1;
+#endif
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -80,6 +84,9 @@ int             pipewrite(struct pipe*, uint64, int);
 void            printf(char*, ...);
 void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
+// my work
+void            backtrace();
+void            backtrace_help(uint64 *this_fp);
 
 // proc.c
 int             cpuid(void);
