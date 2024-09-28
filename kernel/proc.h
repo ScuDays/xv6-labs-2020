@@ -103,4 +103,11 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // lab4-3
+  int alarm_ticks;
+  uint64 handler;
+  int total_ticks; 
+  struct trapframe *alarm_trapframe; // 保存原本用户页表的内容
+  int alarm_status;  // 0表示还未有中断或已经结束，1表示正有中断在进行
 };

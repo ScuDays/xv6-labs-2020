@@ -103,3 +103,28 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// lab4-3
+uint64 
+sys_sigalarm(void){
+
+  struct proc * p = myproc();
+  
+  int parm_ticks = 0;
+  uint64 parm_handler = 0;
+  argint(0, &parm_ticks);
+  argaddr(1, &parm_handler);
+  p->alarm_ticks = parm_ticks;
+  p->handler = parm_handler;
+  p->total_ticks = 0;
+  
+ // printf("调用了sys_sigalarm:ticks为%d",ticks);
+  return 0;
+}
+uint64 
+sys_sigreturn(void){
+  myproc()->alarm_status = 0;
+  memmove(myproc()->trapframe, myproc()->alarm_trapframe, sizeof(struct trapframe));
+
+  return 0;
+ }
