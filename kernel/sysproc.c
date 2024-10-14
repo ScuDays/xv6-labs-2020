@@ -7,6 +7,7 @@
 #include "spinlock.h"
 #include "proc.h"
 
+#define lab_lazy 1
 uint64
 sys_exit(void)
 {
@@ -47,8 +48,22 @@ sys_sbrk(void)
   if(argint(0, &n) < 0)
     return -1;
   addr = myproc()->sz;
-  if(growproc(n) < 0)
-    return -1;
+
+ #ifdef lab_lazy
+ if(n > 0){
+  myproc()->sz += n;
+ }
+ else if(myproc()->sz + n > 0){
+  myproc()->sz = uvmdealloc(myproc()->pagetable, addr, addr + n);
+ }
+ else{
+  return -1;
+ }
+  
+  //  if(growproc(n) < 0)
+  //    return -1;
+  #endif
+
   return addr;
 }
 
