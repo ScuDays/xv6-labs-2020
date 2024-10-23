@@ -1,0 +1,19 @@
+[0;1;32m●[0m clash.service - Clash service
+     Loaded: loaded (/etc/systemd/system/clash.service; enabled; vendor preset: enabled)
+     Active: [0;1;32mactive (running)[0m since Mon 2024-10-21 16:54:38 CST; 1h 48min ago
+   Main PID: 16296 (clash)
+      Tasks: 8 (limit: 3970)
+     Memory: 6.7M
+     CGroup: /system.slice/clash.service
+             └─16296 /usr/local/bin/clash
+
+Oct 21 16:54:38 VM-12-13-ubuntu clash[16296]: time="2024-10-21T16:54:38+08:00" level=info msg="Start initial compatible provider 海外使用"
+Oct 21 16:54:38 VM-12-13-ubuntu clash[16296]: time="2024-10-21T16:54:38+08:00" level=info msg="Start initial compatible provider 自动选择"
+Oct 21 16:54:38 VM-12-13-ubuntu clash[16296]: time="2024-10-21T16:54:38+08:00" level=info msg="Start initial compatible provider 节点选择"
+Oct 21 16:54:38 VM-12-13-ubuntu clash[16296]: time="2024-10-21T16:54:38+08:00" level=info msg="Start initial compatible provider Steam"
+Oct 21 16:54:38 VM-12-13-ubuntu clash[16296]: time="2024-10-21T16:54:38+08:00" level=info msg="Start initial compatible provider 磁力下载"
+Oct 21 16:54:38 VM-12-13-ubuntu clash[16296]: time="2024-10-21T16:54:38+08:00" level=info msg="Start initial compatible provider 微软服务"
+Oct 21 16:54:38 VM-12-13-ubuntu clash[16296]: time="2024-10-21T16:54:38+08:00" level=info msg="Start initial compatible provider WhatsApp"
+Oct 21 16:54:38 VM-12-13-ubuntu clash[16296]: time="2024-10-21T16:54:38+08:00" level=info msg="Start initial compatible provider 谷歌服务"
+Oct 21 16:54:38 VM-12-13-ubuntu clash[16296]: time="2024-10-21T16:54:38+08:00" level=info msg="inbound mixed://127.0.0.1:7890 created successfully"
+Oct 21 16:54:38 VM-12-13-ubuntu clash[16296]: time="2024-10-21T16:54:38+08:00" level=info msg="DNS server listening at: 127.0.0.1:1053"
