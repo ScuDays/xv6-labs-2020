@@ -264,6 +264,7 @@ fork(void)
 
   // Allocate process.
   if((np = allocproc()) == 0){
+   // printf("无法分配进程");
     return -1;
   }
 
@@ -271,6 +272,7 @@ fork(void)
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
     release(&np->lock);
+     printf("复制页表时出错");
     return -1;
   }
   np->sz = p->sz;
@@ -469,7 +471,7 @@ scheduler(void)
       acquire(&p->lock);
       if(p->state != UNUSED) {
         nproc++;
-      }
+      } 
       if(p->state == RUNNABLE) {
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it

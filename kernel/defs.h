@@ -9,6 +9,10 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
+
+#define lab_cow 1
+
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -63,7 +67,9 @@ void            ramdiskrw(struct buf*);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
-
+void            PageRefIncrease(int);
+void            PageRefDecrease(int);
+uint64             cowAlloc(pagetable_t pagetable, uint64 error_va);
 // log.c
 void            initlog(int, struct superblock*);
 void            log_write(struct buf*);
@@ -171,7 +177,7 @@ uint64          walkaddr(pagetable_t, uint64);
 int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
-
+pte_t *         walk(pagetable_t pagetable, uint64 va, int alloc);
 // plic.c
 void            plicinit(void);
 void            plicinithart(void);
