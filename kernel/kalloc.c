@@ -12,8 +12,11 @@
 void freerange(void *pa_start, void *pa_end);
 
 #ifdef lab_cow
-int PageRefCount[PHYSTOP / PGSIZE]; // 记录每一个page的引用数量
-
+struct ref_stru
+{
+  struct spinlock lock;
+  int cnt[PHYSTOP / PGSIZE]; // 引用计数
+} ref;
 #endif
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
@@ -33,6 +36,7 @@ void kinit()
 {
   initlock(&kmem.lock, "kmem");
   // memset(PageRefCount, 0, sizeof(sizeof(int) * PHYSTOP / PGSIZE));
+  initlock(&ref.lock, "ref");
   freerange(end, (void *)PHYSTOP);
 }
 
@@ -44,9 +48,8 @@ void freerange(void *pa_start, void *pa_end)
   {
 
 #ifdef lab_cow
-    PageRefIncrease(((uint64)p) / PGSIZE);
+    ref.cnt[(uint64)p / PGSIZE] = 1;
 #endif
-
     kfree(p);
   }
 }
@@ -63,17 +66,24 @@ void kfree(void *pa)
   if (((uint64)pa % PGSIZE) != 0 || (char *)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
-  PageRefDecrease(((uint64)pa) / PGSIZE);
+  acquire(&ref.lock);
+  //PageRefDecrease(((uint64)pa) / PGSIZE);
 #ifdef lab_cow
-  if (PageRefCount[(uint64)pa / PGSIZE] == 0)
+
+  if (--ref.cnt[(uint64)pa / PGSIZE] == 0)
   {
+    release(&ref.lock);
     // Fill with junk to catch dangling refs.
-    memset(pa, 1, PGSIZE);
+
     r = (struct run *)pa;
+    memset(pa, 1, PGSIZE);
     acquire(&kmem.lock);
     r->next = kmem.freelist;
     kmem.freelist = r;
     release(&kmem.lock);
+  }
+  else{
+     release(&ref.lock);
   }
 
 #endif
@@ -101,14 +111,18 @@ kalloc(void)
   struct run *r;
   acquire(&kmem.lock);
   r = kmem.freelist;
-  if (r)
+  if (r){
     kmem.freelist = r->next;
+    acquire(&ref.lock);
+    ref.cnt[(uint64)r / PGSIZE] = 1;  // 将引用计数初始化为1
+    release(&ref.lock);
+  }
   release(&kmem.lock);
 
   if (r)
   {
     memset((char *)r, 5, PGSIZE); // fill with junk
-    PageRefCount[((uint64)r) / PGSIZE] = 1;
+    
   }
   return (void *)r;
 
@@ -130,21 +144,33 @@ kalloc(void)
 
 #ifdef lab_cow
 
-void PageRefIncrease(int i)
+int PageRefIncrease(void* pa)
 {
-  PageRefCount[i]++;
+   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
+    return -1;
+  acquire(&ref.lock);
+  ref.cnt[(uint64)pa / PGSIZE]++;
+  release(&ref.lock);
+  return 0;
 }
 
-void PageRefDecrease(int i)
+int PageRefDecrease(void* pa)
 {
-  PageRefCount[i]--;
+   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
+    return -1;
+  acquire(&ref.lock);
+  ref.cnt[(uint64)pa / PGSIZE]--;
+  release(&ref.lock);
+  return 0;
 }
 
 // 对设置了 PTE_C 的页面进行分配
-uint64 cowAlloc(pagetable_t pagetable, uint64 error_va)
+void* cowAlloc(pagetable_t pagetable, uint64 error_va)
 {
 
-  uint64 mem;
+   if(error_va >= MAXVA)
+    return 0;
+  char* mem;
   uint64 pa;
   uint flags;
   pte_t *pte;
@@ -155,28 +181,31 @@ uint64 cowAlloc(pagetable_t pagetable, uint64 error_va)
   pte = walk(pagetable, alloc_va, 0);
   flags = PTE_FLAGS(*pte);
   pa = PTE2PA(*pte);
-
-  printf("r_stval:%p\n", r_stval());
-  printf("PGROUNDDOWN(r_stval()):%p\n", PGROUNDDOWN(r_stval()));
-  printf("flags:%p\n", flags);
-  printf("pa:%p\n", pa);
-  printf("r_sepc:%p\n", r_sepc());
-  printf("Page:%d\n", PageRefCount[pa/PGSIZE]);
-  printf("r_scause:%p\n", r_scause());
-  printf("-------------------------------------\n\n");
+  if(pa == 0){
+    return 0;
+  }
  
+  // printf("r_stval:%p\n", r_stval());
+  // printf("PGROUNDDOWN(r_stval()):%p\n", PGROUNDDOWN(r_stval()));
+  // printf("flags:%p\n", flags);
+  // printf("pa:%p\n", pa);
+  // printf("r_sepc:%p\n", r_sepc());
+  // printf("Page:%d\n", ref.cnt[pa / PGSIZE]);
+  // printf("r_scause:%p\n", r_scause());
+  // printf("-------------------------------------\n\n");
 
   // 判断是否是 COW 页面
   if ((flags & PTE_C) != 0)
   {
-
-    if (PageRefCount[pa / PGSIZE] == 1)
+    // 只有一个进程对此物理地址存在引用
+    // 则直接修改PTE
+    if (ref.cnt[pa / PGSIZE] == 1)
     {
-      // printf(" ==1\n");
+      //  printf(" ==1\n");
       //  清除 COW 位并加上读权限
       *pte |= PTE_W;
       *pte &= ~PTE_C;
-      return pa;
+      return (void *)pa;
     }
     else
     {
@@ -184,26 +213,43 @@ uint64 cowAlloc(pagetable_t pagetable, uint64 error_va)
       // 清除 COW 位并加上读权限
       flags = flags | PTE_W;
       flags = (flags & (~PTE_C));
-      mem = (uint64)kalloc();
+      mem = kalloc();
       if (mem == 0)
       {
-        printf("kalloc失败\n");
-        return -1;
+        //printf("kalloc失败\n");
+        return 0;
       }
-      memmove((void *)mem, (const void *)(pa), PGSIZE);
-      uvmunmap(pagetable, alloc_va, 1, 0);
-
+      memmove(mem, (char*)pa, PGSIZE);
+     // uvmunmap(pagetable, alloc_va, 1, 0);
+       *pte &= ~PTE_V;
       if (mappages(pagetable, alloc_va, PGSIZE, (uint64)mem, flags) != 0)
       {
         printf("mappages失败\n");
         kfree((void *)mem);
-        return -1;
+        return 0;
       }
       // 减少原本指向的内存的引用
-      PageRefDecrease(pa / PGSIZE);
+      // 问题:
+      // 原因:copyout()中)调用cowAlloc()会存在需要释放内存的情况，但在usertrap()调用cowAlloc()处理中不会，
+      // 一直考虑的是cowAlloc()中释放内存的情况，导致错误。
+      // 原本代码：
+      //PageRefDecrease((void*)(PGROUNDDOWN(pa)));
+      // 修正后代码：
+      kfree((char*)PGROUNDDOWN(pa));
       return mem;
     }
   }
-  return -1;
+  return 0;
+}
+
+int cowpage(pagetable_t pagetable, uint64 va) {
+  if(va >= MAXVA)
+    return -1;
+  pte_t* pte = walk(pagetable, va, 0);
+  if(pte == 0)
+    return -1;
+  if((*pte & PTE_V) == 0)
+    return -1;
+  return (*pte & PTE_C ? 0 : -1);
 }
 #endif

@@ -363,8 +363,21 @@ err:
 
     if (flags & PTE_W)
     {
-      *pte = *pte & (~PTE_W);
-      *pte = *pte | PTE_C;
+ 
+      // 问题:
+      /** 原因:flags在下面代码mappage中需要用到，忘记修改flags导致了问题
+       * 一直在怀疑错误代码和修复后的代码效果不是一样的吗？
+       * 结果两个代码最后对PTE的权限位修改确实是一样的
+       * 但问题就出在flags上了
+       */
+      // 源代码
+      /* 
+      * *pte = (*pte) & (~PTE_W);
+      * pte = *pte | PTE_C;
+      */
+  
+      flags = (flags | PTE_C) & ~PTE_W;
+      *pte = PA2PTE(pa) | flags;
     }
 
     if (mappages(new, i, PGSIZE, pa, flags) != 0)
@@ -373,7 +386,7 @@ err:
       uvmunmap(new, 0, i / PGSIZE, 1);
       return -1;
     }
-    PageRefIncrease(pa / PGSIZE);
+    PageRefIncrease((void *)pa);
   }
 
   return 0;
@@ -405,14 +418,29 @@ int copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     pa0 = walkaddr(pagetable, va0);
 
 #ifdef lab_cow
-    uint flags;
+    // 问题:
+    /**
+     * 原因:
+     * 1:cowAlloc中只考虑了是否是COW页面，
+     * 2:但是这里页面错误情况中还需要考虑地址是否有效，
+     * 3:是否确实有对应的页表.
+     * */
+    // 原本代码：
+    /*uint flags;
     pte_t *pte;
-
     pte = walk(pagetable, va0, 0);
     flags = PTE_FLAGS(*pte);
     if (flags & PTE_C)
     {
-      pa0 = cowAlloc(pagetable, va0);
+      pa0 = (uint64)cowAlloc(pagetable, va0);
+    }
+    */
+    // 修正后代码
+    // 需要判断
+    if (cowpage(pagetable, va0) == 0)
+    {
+      // 更换目标物理地址
+      pa0 = (uint64)cowAlloc(pagetable, va0);
     }
 
 #endif

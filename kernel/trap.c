@@ -68,9 +68,22 @@ void usertrap(void)
   {
     // ok
   }
-  else if ( r_scause() == 13 || r_scause() == 15)
+  else if (r_scause() == 13 || r_scause() == 15)
   {
-    if(cowAlloc(p->pagetable, r_stval()) == -1)
+
+    // 问题:
+    /**  
+     * 原因:
+     * 1:cowAlloc中只考虑了是否是COW页面，
+     * 2:但是这里页面错误情况中还需要考虑地址是否有效，
+     * 3:是否确实有对应的页表.
+     * */
+    // 原本代码：
+    // if(cowAlloc(p->pagetable, r_stval()) == 0)
+    //   p->killed = 1;
+    // 修正后代码
+    uint64 fault_va = r_stval(); // 获取出错的虚拟地址
+    if (fault_va >= p->sz || cowpage(p->pagetable, fault_va) != 0 || cowAlloc(p->pagetable, fault_va) == 0)
       p->killed = 1;
   }
   else
