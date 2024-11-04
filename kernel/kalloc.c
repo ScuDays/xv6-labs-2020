@@ -67,14 +67,11 @@ void kfree(void *pa)
     panic("kfree");
 
   acquire(&ref.lock);
-  //PageRefDecrease(((uint64)pa) / PGSIZE);
 #ifdef lab_cow
-
   if (--ref.cnt[(uint64)pa / PGSIZE] == 0)
   {
     release(&ref.lock);
     // Fill with junk to catch dangling refs.
-
     r = (struct run *)pa;
     memset(pa, 1, PGSIZE);
     acquire(&kmem.lock);
@@ -154,15 +151,6 @@ int PageRefIncrease(void* pa)
   return 0;
 }
 
-int PageRefDecrease(void* pa)
-{
-   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
-    return -1;
-  acquire(&ref.lock);
-  ref.cnt[(uint64)pa / PGSIZE]--;
-  release(&ref.lock);
-  return 0;
-}
 
 // 对设置了 PTE_C 的页面进行分配
 void* cowAlloc(pagetable_t pagetable, uint64 error_va)
