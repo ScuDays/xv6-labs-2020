@@ -93,7 +93,7 @@ static struct proc*
 allocproc(void)
 {
   struct proc *p;
-
+  // 寻找是否有空闲线程
   for(p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
     if(p->state == UNUSED) {
@@ -103,7 +103,7 @@ allocproc(void)
     }
   }
   return 0;
-
+  // 若找到，则调用allocpid分配线程
 found:
   p->pid = allocpid();
 
