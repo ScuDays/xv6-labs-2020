@@ -34,7 +34,7 @@ struct {
 } bcache;
 
 void
-binit(void)
+  binit(void)
 {
   struct buf *b;
 
