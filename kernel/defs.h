@@ -12,7 +12,7 @@ struct superblock;
 struct mbuf;
 struct sock;
 #endif
-#define lab_lock 1
+#define lab_lock_memory 1
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);

@@ -64,7 +64,7 @@ void kfree(void *pa)
 // r->next = kmem.freelist;
 // kmem.freelist = r;
 // release(&kmem.lock);
-#ifdef lab_lock
+#ifdef lab_lock_memory
   push_off();
   int id = cpuid();
   acquire(&kmem[id].lock);
@@ -92,7 +92,7 @@ kalloc(void)
 // if(r)
 //   memset((char*)r, 5, PGSIZE); // fill with junk
 // return (void*)r;
-#ifdef lab_lock
+#ifdef lab_lock_memory
   push_off();
   int id = cpuid();
   struct run *r;
