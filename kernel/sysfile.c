@@ -244,9 +244,10 @@ create(char *path, short type, short major, short minor)
   struct inode *ip, *dp;
   char name[DIRSIZ];
 
+  // 查找目录
   if((dp = nameiparent(path, name)) == 0)
     return 0;
-
+  // 对父目录加锁以,保证在创建新文件时不会有其他进程修改同一目录。
   ilock(dp);
 
   if((ip = dirlookup(dp, name, 0)) != 0){
