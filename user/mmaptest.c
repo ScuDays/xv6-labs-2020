@@ -6,6 +6,9 @@
 #include "kernel/fs.h"
 #include "user/user.h"
 
+void* mmap(void* addr, int length, int prot, int flags, int fd, int offset);
+int munmap(void* addr, int length);
+
 void mmap_test();
 void fork_test();
 char buf[BSIZE];
