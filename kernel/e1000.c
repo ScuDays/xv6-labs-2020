@@ -103,7 +103,31 @@ e1000_transmit(struct mbuf *m)
   // a pointer so that it can be freed after sending.
   //
   
-  return 0;
+  // 我们需要查看寄存器，所以需要获取锁
+  acquire(&e1000_lock);
+  // 获取当前尾指针
+  int tran_index = regs[E1000_TDT];
+  // 获取出这个描述符的 status，提取出 E1000_TXD_STAT_DD 看是否位0
+  // 判断 E1000 是否尚未完成先前相应的传输请求
+  if((tx_ring[tran_index].status & E1000_TXD_STAT_DD) == 0){
+    release(&e1000_lock);
+    return -1;
+  }
+  // 如果这个已经传输完毕，则释放掉描述符指向的具体的内存
+  else{
+    if(tx_mbufs[tran_index]){
+mbuffree(tx_mbufs[tran_index]);
+    }
+    
+    tx_ring[tran_index].addr = (uint64)m->head;
+    tx_ring[tran_index].cmd = E1000_TXD_CMD_RS | E1000_TXD_CMD_EOP;;
+    tx_ring[tran_index].length =  m->len;
+    tx_mbufs[tran_index] = m;
+    regs[E1000_TDT] =  (regs[E1000_TDT] + 1 )% TX_RING_SIZE;
+    release(&e1000_lock);
+    return 0;
+  }
+ 
 }
 
 static void
@@ -115,6 +139,21 @@ e1000_recv(void)
   // Check for packets that have arrived from the e1000
   // Create and deliver an mbuf for each packet (using net_rx()).
   //
+
+    while (1) {
+   uint32 r_index = (regs[E1000_RDT] + 1) % RX_RING_SIZE;
+   if ((rx_ring[r_index].status & E1000_RXD_STAT_DD) == 0) {
+   return;
+   }
+   rx_mbufs[r_index]->len = (uint32)rx_ring[r_index].length;
+   if (rx_mbufs[r_index]) {
+     net_rx(rx_mbufs[r_index]);
+   }
+   rx_mbufs[r_index] = mbufalloc(0);
+   rx_ring[r_index].addr = (uint64)rx_mbufs[r_index]->head;
+   rx_ring[r_index].status = 0;
+   regs[E1000_RDT] = r_index;
+  }
 }
 
 void
